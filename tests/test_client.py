@@ -304,6 +304,45 @@ def test_get_client_totals() -> None:
     assert totals.down_speed == 275
 
 
+def test_set_client_blocked_true_posts_block_form() -> None:
+    client, transport = _logged_in({"block": {}})
+    client.set_client_blocked("AA:BB:CC:DD:EE:FF", blocked=True)
+    admin_urls = [u for u in transport.posted_urls if "admin/client" in u]
+    assert admin_urls
+    assert "form=block" in admin_urls[-1]
+
+
+def test_set_client_blocked_false_posts_block_form() -> None:
+    client, transport = _logged_in({"block": {}})
+    client.set_client_blocked("AA:BB:CC:DD:EE:FF", blocked=False)
+    admin_urls = [u for u in transport.posted_urls if "admin/client" in u]
+    assert admin_urls
+    assert "form=block" in admin_urls[-1]
+
+
+def test_set_client_blocked_propagates_api_error() -> None:
+    transport = _FakeTransport()
+    client = _make_client(transport)
+    _login(client, transport)
+    client.login()
+    assert client._session is not None
+    keys = client._session.keys
+    transport.set_aes(keys.aes_key, keys.aes_iv)
+
+    real_post_form = transport.post_form
+
+    def error_post(url: str, body: str) -> JsonObject:
+        if "form=block" in url:
+            inner = {"result": {}, "error_code": -5002}
+            return transport._envelope(inner)
+        return real_post_form(url, body)
+
+    transport.post_form = error_post  # type: ignore[assignment]
+    with pytest.raises(ApiError) as exc:
+        client.set_client_blocked("AA:BB:CC:DD:EE:FF", blocked=True)
+    assert exc.value.error_code == -5002
+
+
 def test_request_url_includes_stok() -> None:
     client, transport = _logged_in({"mode": {"workmode": "router", "sysmode": "router"}})
     client.get_device_mode()

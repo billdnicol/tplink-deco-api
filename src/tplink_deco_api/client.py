@@ -188,6 +188,18 @@ class DecoClient:
         """Return aggregated up/down speeds across all clients."""
         return NetworkTotals.from_clients(self.get_client_list(deco_mac))
 
+    def set_client_blocked(self, mac: str, *, blocked: bool) -> None:
+        """Block or unblock ``mac`` from the network, mirroring the app's Block List.
+
+        Raises :class:`~tplink_deco_api.ApiError` if the router rejects the
+        request (:meth:`request` already validates ``error_code`` for us).
+        """
+        self.request(
+            "admin/client",
+            "block",
+            {"operation": "write", "params": {"mac": mac, "enable": blocked}},
+        )
+
     def get_internet_status(self) -> InternetStatus:
         """Return WAN connection status including IPv4, IPv6 and physical link state."""
         result = self.request("admin/network", "internet", {"operation": "read"})
